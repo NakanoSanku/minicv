@@ -111,7 +111,10 @@ class Images:
         match = np.logical_and.reduce(diff <= threshold, axis=2)
         # 获取匹配像素点的坐标
         y, x = np.where(match)
-        return None if len(x) == 0 else x[0] + x_min, y[0] + y_min
+        if len(x) == 0:
+            return None
+        else:
+            return x[0] + x_min, y[0] + y_min
 
     def findAllColor(img: cv2.Mat | Image, color, region=None, threshold=4):
         """
@@ -142,11 +145,11 @@ class Images:
         match = np.logical_and.reduce(diff <= threshold, axis=2)
         # 获取匹配像素点的坐标
         y, x = np.where(match)
-        return (
-            None
-            if len(x) == 0
-            else [(x[i] + x_min, y[i] + y_min) for i in range(len(x))]
-        )
+        if len(x) == 0:
+            return None
+        else:
+            return[(x[i] + x_min, y[i] + y_min) for i in range(len(x))]
+        
 
     def findMultiColors(
         img: cv2.Mat | Image, firstColor, colors, region=None, threshold=4

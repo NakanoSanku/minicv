@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='minicv',
-  version='1.0.0',
+  version='1.0.1',
   description='High performance CV',
   author='KateTseng',
   author_email='KateTseng.K@outlook.com',
