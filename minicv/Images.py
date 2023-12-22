@@ -212,7 +212,8 @@ class Images:
             imgData.shape[0],
         )
         imgData = imgData[y_min:y_max, x_min:x_max]
-        level = level or select_pyramid_level(imgData, templateData)
+        if level is None:
+            level =  select_pyramid_level(imgData, templateData)
         imgData = Images.grayscale(imgData)
         templateData = Images.grayscale(templateData)
 
@@ -270,7 +271,7 @@ class Images:
 
 def select_pyramid_level(img, template):
     min_dim = min(img.shape[0], img.shape[1], template.shape[0], template.shape[1])
-    max_level = int(math.log2(min_dim // 16))
-    if max_level < 0:
+    if min_dim < 32:
         return 0
+    max_level = int(math.log2(min_dim // 16))
     return min(6, max_level)
