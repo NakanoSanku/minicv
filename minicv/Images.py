@@ -1,4 +1,5 @@
 import math
+from typing import List
 import cv2
 import numpy as np
 
@@ -81,6 +82,36 @@ class Images:
         b, g, r = imgData[y, x]
         return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
+    def __findColorInner(
+        img: cv2.Mat | Image,
+        color: int | str,
+        threshold=4,
+        region=None,
+    ):
+        if isinstance(color, str):
+            hexColor = int(color[1:], 16)
+        elif isinstance(color, int):
+            hexColor = color
+        else:
+            raise ValueError("Color Format Error")
+        bgrColor = [hexColor & 0xFF, (hexColor >> 8) & 0xFF, (hexColor >> 16) & 0xFF]
+        lowerBound = np.array(
+            [max(color - threshold, 0) for color in bgrColor], dtype=np.uint8
+        )
+        upperBound = np.array(
+            [min(color + threshold, 255) for color in bgrColor], dtype=np.uint8
+        )
+        imgData = img.data if isinstance(img, Image) else img
+        minX, minY, maxX, maxY = region or (
+            0,
+            0,
+            imgData.shape[1],
+            imgData.shape[0],
+        )
+        imgData = imgData[minY:maxY, minX:maxX]
+        mask = cv2.inRange(imgData, lowerBound, upperBound)
+        return cv2.findNonZero(mask)
+
     def findColor(img: cv2.Mat | Image, color, region=None, threshold=4):
         """
         findColor 找色功能
@@ -92,29 +123,13 @@ class Images:
             threshold (int, optional): 颜色相似度. Defaults to 4.
 
         Returns:
-            x (int):
-            y (int):
+            [x,y] 第一个符合条件的点
         """
-        imgData = img.data if isinstance(img, Image) else img
-        x_min, y_min, x_max, y_max = region or (
-            0,
-            0,
-            imgData.shape[1],
-            imgData.shape[0],
-        )
-        imgData = imgData[y_min:y_max, x_min:x_max]
-        # 将颜色值转换为 RGB 分量值
-        r, g, b = np.array([int(color[i : i + 2], 16) for i in (1, 3, 5)])
-        # 计算颜色差
-        diff = np.abs(imgData - [b, g, r])
-        # 判断颜色是否匹配
-        match = np.logical_and.reduce(diff <= threshold, axis=2)
-        # 获取匹配像素点的坐标
-        y, x = np.where(match)
-        if len(x) == 0:
+        result = Images.__findColorInner(img, color, threshold, region)
+        if result is None:
             return None
-        else:
-            return x[0] + x_min, y[0] + y_min
+        point = [e for e in result[0][0]]
+        return [point[0] + region[0], point[1] + region[1]] if region else point
 
     def findAllColor(img: cv2.Mat | Image, color, region=None, threshold=4):
         """
@@ -129,27 +144,15 @@ class Images:
         Returns:
             颜色值所有点 (list): [(x,y),(x,y),(x,y)]
         """
-        imgData = img.data if isinstance(img, Image) else img
-        x_min, y_min, x_max, y_max = region or (
-            0,
-            0,
-            imgData.shape[1],
-            imgData.shape[0],
-        )
-        imgData = imgData[y_min:y_max, x_min:x_max]
-        # 将颜色值转换为 RGB 分量值
-        r, g, b = np.array([int(color[i : i + 2], 16) for i in (1, 3, 5)])
-        # 计算颜色差
-        diff = np.abs(imgData - [b, g, r])
-        # 判断颜色是否匹配
-        match = np.logical_and.reduce(diff <= threshold, axis=2)
-        # 获取匹配像素点的坐标
-        y, x = np.where(match)
-        if len(x) == 0:
+        result = Images.__findColorInner(img, color, threshold, region)
+        if result is None:
             return None
-        else:
-            return[(x[i] + x_min, y[i] + y_min) for i in range(len(x))]
-        
+        points = [(p[0][0], p[0][1]) for p in result]
+        return (
+            [(point[0] + region[0], point[1] + region[1]) for point in points]
+            if region
+            else points
+        )
 
     def findMultiColors(
         img: cv2.Mat | Image, firstColor, colors, region=None, threshold=4
@@ -169,21 +172,30 @@ class Images:
             y (int): 第一个点的纵坐标
 
         """
-        imgData = img.data if isinstance(img, Image) else img
+
         firstColorPoints = Images.findAllColor(
-            imgData, firstColor, region=region, threshold=threshold
+            img, firstColor, region=region, threshold=threshold
         )
         if firstColorPoints is None:
             return None
         for x0, y0 in firstColorPoints:
+            result = (x0, y0)
             for x, y, target_color in colors:
+                if isinstance(target_color, str):
+                    color = Colors.parseColor(target_color)
+                elif isinstance(target_color, int):
+                    color = target_color
+                else:
+                    raise ValueError("Color Format Error")
                 if not Colors.isSimilar(
-                    Colors.parseColor(target_color),
-                    Colors.parseColor(Images.getPixel(imgData, x + x0, y + y0)),
+                    color,
+                    Colors.parseColor(Images.getPixel(img, x + x0, y + y0)),
                     threshold=threshold,
                 ):
+                    result = None
                     break
-            return x0, y0
+            if result is not None:
+                return result
         return None
 
     def findImage(
@@ -213,7 +225,7 @@ class Images:
         )
         imgData = imgData[y_min:y_max, x_min:x_max]
         if level is None:
-            level =  select_pyramid_level(imgData, templateData)
+            level = select_pyramid_level(imgData, templateData)
         imgData = Images.grayscale(imgData)
         templateData = Images.grayscale(templateData)
 
@@ -266,7 +278,6 @@ class Images:
             return imgData
         # 将彩色图像转换为灰度图像
         return cv2.cvtColor(imgData, cv2.COLOR_BGR2GRAY)
-        
 
 
 def select_pyramid_level(img, template):

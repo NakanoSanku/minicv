@@ -20,7 +20,7 @@ class Colors:
         return f"#{a}{r}{g}{b}"
 
     @staticmethod
-    def isSimilar(color1, color2, threshold=4, algorithm="diff"):
+    def isSimilar(color1: int, color2: int, threshold=4, algorithm="diff"):
         """
         isSimilar 返回两个颜色是否相似
         Args:
@@ -82,14 +82,8 @@ class Colors:
         Returns:
             16进制颜色值 (int):
         """
-        color_str = color_str.strip("#")  # 移除字符串开头的 "#"
-        red = int(color_str[0:2], 16)  # 提取红色分量并转换为整数
-        green = int(color_str[2:4], 16)  # 提取绿色分量并转换为整数
-        blue = int(color_str[4:6], 16)  # 提取蓝色分量并转换为整数
-        color_value = (red << 16) + (green << 8) + blue  # 将分量组合为整数值
-        return color_value
+        return int(color_str[1:], 16)
 
-    
 
 # RGB转LAB
 def rgb2lab(color):
